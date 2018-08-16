@@ -9,8 +9,8 @@ userid  = 0 # WARNING! SHOULD NOT CHANGE ONCE SET IN CHECKUSER() BLOCK
 prodid  = 0 # WARNING! SHOULD NOT CHANGE ONCE SET IN CHECKPROD() BLOCK
 barcode = 0 # WARNING! SHOULD NOT CHANGE ONCE SET IN SCANBARCODE() BLOCK
 toscan  = 1
-
-SESSION = 0
+numbot  = 0 # Number of bottles for the current session.
+session = []
 
 # INDEX VALUES #
 i_user = 0  # UserDB : col 0
@@ -28,10 +28,9 @@ i_petB = 1  # ProdDB : col 1, pet or not (Boolean value: 0,1)
 i_manu = 2  # ProdDB : col 2, manufacturer
 i_orig = 3  # ProdDB : col 3, country of origin
 
-
-##########################
-# LOAD ALL THE DATABASES #
-##########################
+############################
+## LOAD ALL THE DATABASES ##
+############################
 
 # USER DATABASE #
 def loadUSERDB():
@@ -57,9 +56,9 @@ def loadPRODDB():
         for row in readCSV:
             product.append(row)
 
-####################
-# HELPER FUNCTIONS #
-####################
+######################
+## HELPER FUNCTIONS ##
+######################
 
 def getCREDIT():
     credit = '%.2f'%( float(account[userid][i_tusr]) * cost )
@@ -76,7 +75,7 @@ def scanBARCODE():
     
     if prompt is "y":
         toscan = 1
-        prompt = input('Scan product barcode: ')
+        prompt = input('\nScan product barcode: ')
         global barcode
         barcode = int(prompt)
         checkPRODUCT()
@@ -85,23 +84,57 @@ def scanBARCODE():
 
 def scanLOOP():
     scanBARCODE()
-    global SESSION
+    global numbot
     while int(toscan) != 0:
         if checkPRODUCT() == 1:
             print("Product exists in the database.")
             if checkPET() == 1:
                 print("Product is PET!")
-                SESSION += 1
+                numbot += 1
+                repeatSCAN()
+                session.append(barcode)
+                print("Total bottles for this session:", numbot)
             else:
                 print("Product is NOT PET!")
         else:
             print("Product does not exist in the database.")
         scanBARCODE()
-        
 
-########################################################################
-# STAGE ONE : ASK FOR QR CODE AND CHECK IF USER EXISTS IN THE DATABASE #
-########################################################################
+def repeatSCAN():
+    global session
+    global numbot
+    if barcode in session:
+        print("Bottle already scanned.")
+        numbot -= 1
+
+def selectCHAR():
+    global numbot
+    print("Who would you like to donate to?")
+    incr = 0
+    while incr < len(charity):
+        print(incr, ":", charity[incr][i_cnme], sep=' ')
+        incr += 1
+
+    loop = 0
+    while numbot > 0:
+        select = input('Please select charity: ')
+        value = input('How many bottles? ')
+        ivalue = int(value)
+
+        # Need to ensure user does not enter more bottles than scanned. #
+        if ivalue > numbot:
+            print("Invalid number. Please try again.")
+        else:
+            charity[int(select)][4] = ivalue
+            numbot = numbot - ivalue
+            print("Bottles left: ", numbot)
+        loop += 1
+        
+    print("Thank you for donating your PET bottles!")
+
+##########################################################################
+## STAGE ONE : ASK FOR QR CODE AND CHECK IF USER EXISTS IN THE DATABASE ##
+##########################################################################
 
 def checkUSER():
     """
@@ -138,13 +171,12 @@ def checkUSER():
             return 3
         else:
             return 0
-    
     else:
         return 0
-    
-###########################################################################
-# STAGE TWO : ASK FOR BARCODE AND CHECK IF PRODUCT EXISTS IN THE DATABASE #
-###########################################################################
+
+#############################################################################
+## STAGE TWO : ASK FOR BARCODE AND CHECK IF PRODUCT EXISTS IN THE DATABASE ##
+#############################################################################
 
 def checkPRODUCT():
     """
@@ -168,45 +200,28 @@ def checkPRODUCT():
         incr += 1
     return 0
 
-###################################
-# STAGE THREE : DONATE TO CHARITY #
-###################################
+################
+## MAIN BLOCK ##
+################
 
-def donate():
-    
-
-##############
-# MAIN BLOCK #
-##############
 loadUSERDB()
 loadPRODDB()
+loadCHARDB()
 
 usertype = int(checkUSER())
 
-if usertype==1:
+if usertype == 1:
     print("Welcome!")
     scanLOOP()
-if usertype==2:
+if usertype == 2:
     print("Welcome,", account[userid][i_fnme], account[userid][i_snme], sep=' ', end="!\n")
     scanLOOP()
+    print("Total bottles for this session: ", numbot)
+    selectCHAR()
+if usertype == 3:
+    #Create a new account#
+    print("Please wait while we set up an account for you...")
 else:
     print("END.")
 
-print(SESSION)
 
-"""
-if int(checkUSER()) == 1:
-    # User account exists #
-    print("Welcome,", account[userid][i_fnme], account[userid][i_snme], sep=' ', end="!\n")
-    print("================\nUSER INFORMATION\n================\n")
-    print("You have collected", account[userid][i_tusr], "bottles!", sep=' ')
-    print("Credit:", getCREDIT())
-if int(checkUSER()) == 2:
-    # Use default account #
-    print("Default account")
-if int(checkUSER()) == 3:
-    # Create new account #
-    print("Please wait while we set up an account for you...")
-if int(checkUSER()) == 0:
-    print("<< EXIT MESSAGE >>")
-"""
